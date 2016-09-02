@@ -2,6 +2,7 @@ package mobi.acpm.sslunpinning;
 
 import org.apache.http.conn.scheme.HostNameResolver;
 import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
 
 import java.net.Socket;
 import java.security.KeyStore;
@@ -11,6 +12,8 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+
+
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -72,23 +75,34 @@ public class Module implements IXposedHookLoadPackage {
 
         // --- APACHE ---
 
-        //HttpsURLConnection.setDefaultHostnameVerifier >> SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER
-        findAndHookMethod("org.apache.http.conn.ssl.HttpsURLConnection", loadPackageParam.classLoader, "setDefaultHostnameVerifier",
-                HostnameVerifier.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        param.args[0] = SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
-                    }
-                });
+        //SchemeRegistry.register >> new Scheme
+        findAndHookMethod("org.apache.http.conn.scheme.SchemeRegistry", loadPackageParam.classLoader, "register", org.apache.http.conn.scheme.Scheme.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                Scheme scheme = (Scheme)param.args[0];
+                if (scheme.getName() =="https") {
+                    param.args[0] = new Scheme("https", SSLSocketFactory.getSocketFactory(), 443);
+                }
+            }
+        });
 
-        //HttpsURLConnection.setHostnameVerifier >> SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER
-        findAndHookMethod("org.apache.http.conn.ssl.HttpsURLConnection", loadPackageParam.classLoader, "setHostnameVerifier", HostnameVerifier.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        param.args[0] = SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
-                    }
-                });
+//        //HttpsURLConnection.setDefaultHostnameVerifier >> SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER
+//        findAndHookMethod("org.apache.http.conn.ssl.HttpsURLConnection", loadPackageParam.classLoader, "setDefaultHostnameVerifier",
+//                HostnameVerifier.class, new XC_MethodHook() {
+//                    @Override
+//                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//                        param.args[0] = SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
+//                    }
+//                });
+//
+//        //HttpsURLConnection.setHostnameVerifier >> SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER
+//        findAndHookMethod("org.apache.http.conn.ssl.HttpsURLConnection", loadPackageParam.classLoader, "setHostnameVerifier", HostnameVerifier.class,
+//                new XC_MethodHook() {
+//                    @Override
+//                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//                        param.args[0] = SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
+//                    }
+//                });
 
         //SSLSocketFactory.getSocketFactory >> new SSLSocketFactory
         findAndHookMethod("org.apache.http.conn.ssl.SSLSocketFactory", loadPackageParam.classLoader, "getSocketFactory", new XC_MethodHook() {
